@@ -1,0 +1,27 @@
+@import "tailwindcss";
+@import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;600;900&display=swap');
+
+@theme {
+  --font-display: "Outfit", sans-serif;
+}
+
+body {
+  margin: 0;
+  padding: 0;
+  overflow: hidden;
+  background-color: #050505;
+  font-family: var(--font-display);
+  color: white;
+}
+
+.glow-text {
+  text-shadow: 0 0 10px rgba(0, 255, 204, 0.8), 0 0 20px rgba(0, 255, 204, 0.4);
+}
+
+.cosmic-title {
+  font-weight: 900;
+  font-style: italic;
+  background: linear-gradient(to right, #00ffcc, #00ffff);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
