@@ -995,6 +995,19 @@ export default function App() {
 
           // Unique visual styles based on ForceType
           switch (f.type) {
+            case 'sound-wave':
+              // Concentric expanding rings for sound waves
+              ctx.strokeStyle = color;
+              ctx.lineWidth = 2;
+              for (let i = 0; i < 3; i++) {
+                const r = ((age * 0.2 + i * radius / 3) % radius);
+                const alpha = life * (1 - r / radius);
+                ctx.globalAlpha = alpha;
+                ctx.beginPath();
+                ctx.arc(0, 0, r, 0, Math.PI * 2);
+                ctx.stroke();
+              }
+              break;
             case 'electric':
               // Subtle glow instead of lightning lines
               if (Number.isFinite(radius) && radius > 0) {
@@ -1042,6 +1055,24 @@ export default function App() {
                 }
                 ctx.stroke();
               }
+              break;
+            case 'black-hole':
+              // Dark core with event horizon glow
+              ctx.globalCompositeOperation = 'source-over';
+              ctx.fillStyle = '#000000';
+              ctx.beginPath();
+              ctx.arc(0, 0, radius * 0.3, 0, Math.PI * 2);
+              ctx.fill();
+              
+              ctx.globalCompositeOperation = 'lighter';
+              const bhGrad = ctx.createRadialGradient(0, 0, radius * 0.2, 0, 0, radius);
+              bhGrad.addColorStop(0, '#ff00ff');
+              bhGrad.addColorStop(0.5, '#4400aa');
+              bhGrad.addColorStop(1, 'transparent');
+              ctx.fillStyle = bhGrad;
+              ctx.beginPath();
+              ctx.arc(0, 0, radius, 0, Math.PI * 2);
+              ctx.fill();
               break;
             case 'cosmic':
               // Star sparkles
@@ -1170,13 +1201,12 @@ export default function App() {
       collisionEffectsRef.current.push(new CollisionEffect(adjX, adjY, 'explosion', effectColor, config.highDefinition));
       collisionEffectsRef.current.push(new CollisionEffect(adjX, adjY, 'shockwave', effectColor, config.highDefinition));
       
-      // Create temporary force field as requested
-      const strength = (100 + chargeVal * 500) * config.forceStrengthMult;
-      const radius = (150 + chargeVal * 450) * config.forceRadiusMult;
-      const forceDuration = 3000 + chargeVal * 7000;
+      // Create temporary Black Hole for 10 seconds as requested
+      const strength = (200 + chargeVal * 800) * config.forceStrengthMult;
+      const radius = (250 + chargeVal * 500) * config.forceRadiusMult;
+      const forceDuration = 10000; // 10 seconds
       
-      const types: ForceType[] = ['attractor', 'repulsor', 'vortex'];
-      const type = types[Math.floor(Math.random() * types.length)];
+      const type = 'black-hole';
 
       socketRef.current?.emit('addForce', {
         x: adjX,
@@ -1185,7 +1215,7 @@ export default function App() {
         strength: strength,
         radius: radius,
         duration: forceDuration,
-        color: type === 'attractor' ? '#00ff00' : (type === 'repulsor' ? '#ff6600' : '#00ffff'),
+        color: '#000000',
         behavior: 'pulsate'
       });
 

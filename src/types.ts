@@ -709,6 +709,7 @@ export class Particle {
   energy: number;
   life: number;
   hue: number;
+  isSoundWaveInfluenced: boolean = false;
 
   pulse: number;
   id: string;
@@ -1093,6 +1094,7 @@ export class Particle {
     }
 
     // Apply forces
+    this.isSoundWaveInfluenced = false;
     forces.forEach(f => {
       const dx = f.x - this.x;
       const dy = f.y - this.y;
@@ -1176,6 +1178,12 @@ export class Particle {
             this.vx += (dx / dist) * forceMag * 2.0;
             this.vy += (dy / dist) * forceMag * 2.0;
             this.energy = Math.min(1, this.energy + 0.1);
+            break;
+          case 'sound-wave':
+            this.isSoundWaveInfluenced = true;
+            const vibrate = Math.sin(dist * 0.1 - Date.now() * 0.05) * forceMag * 2;
+            this.vx += (dx / dist) * vibrate;
+            this.vy += (dy / dist) * vibrate;
             break;
         }
       }
@@ -1411,6 +1419,21 @@ export class Particle {
     ctx.beginPath();
     ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
     ctx.fill();
+
+    // Sound Wave Visualization: Concentric Rings
+    if (this.isSoundWaveInfluenced) {
+      ctx.save();
+      ctx.strokeStyle = this.color;
+      ctx.globalAlpha = 0.4;
+      ctx.lineWidth = 1;
+      for (let i = 1; i <= 3; i++) {
+        const r = this.size + ((Date.now() * 0.05 + i * 10) % 30);
+        ctx.beginPath();
+        ctx.arc(this.x, this.y, r, 0, Math.PI * 2);
+        ctx.stroke();
+      }
+      ctx.restore();
+    }
 
     // Quantum Spin & Phase Indicator
     if (modes.includes('quantum')) {
