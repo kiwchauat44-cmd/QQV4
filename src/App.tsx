@@ -9,7 +9,7 @@ import {
   Mountain, Snowflake, Moon, Thermometer, Volume2, ArrowDownCircle,
   PlusCircle, MinusCircle, Star as StarIcon, Droplets, Gem, Skull, Heart, Brain, Cloud
 } from 'lucide-react';
-import { Particle, Player, Force, ForceType, SimulationMode, ParticleType, Star, CollisionEffect, CollisionEffectType, CollisionResult } from './types';
+import { Particle, Player, Force, ForceType, SimulationMode, ParticleType, Star, CollisionEffect, CollisionEffectType, CollisionResult, getParticleBehaviorProfile } from './types';
 import QuantumWorld from './components/quantum/QuantumWorld';
 
 const MODES: { id: SimulationMode; label: string; icon: any; desc: string }[] = [
@@ -763,14 +763,16 @@ export default function App() {
                       p.energy -= energyExchange;
                       other.energy += energyExchange;
 
-                      // Quarks and Electric particles gain energy on impact
-                      if (p.type === 'quark' || p.type === 'electric') p.energy = Math.min(1, p.energy + 0.05);
-                      if (other.type === 'quark' || other.type === 'electric') other.energy = Math.min(1, other.energy + 0.05);
-                      
-                      // Nuclear particles can trigger a small "spark"
-                      if (p.type === 'nuclear' || other.type === 'nuclear') {
-                        p.energy = Math.min(1, p.energy + 0.1);
-                        other.energy = Math.min(1, other.energy + 0.1);
+                      // Intrinsic material profiles decide how much energy is
+                      // retained by each particle after impact.
+                      p.energy = Math.min(1, Math.max(0.1, p.energy + p.behavior.collisionEnergy));
+                      other.energy = Math.min(1, Math.max(0.1, other.energy + other.behavior.collisionEnergy));
+
+                      // Highly reactive materials trigger a stronger visual
+                      // response, while neutrinos and neutral matter remain quiet.
+                      const collisionReactivity = p.behavior.collisionEnergy + other.behavior.collisionEnergy;
+                      if (collisionReactivity > 0.18) {
+                        shakeRef.current = Math.max(shakeRef.current, Math.min(8, collisionReactivity * 18));
                       }
 
                       // Trigger visual collision effects
@@ -780,8 +782,10 @@ export default function App() {
                         
                         const isHighEnergy = p.energy > 0.7 || other.energy > 0.7;
                         const isHeavyCollision = p.mass > 15 || other.mass > 15;
+                        const motionA = p.behavior.motion;
+                        const motionB = other.behavior.motion;
 
-                        if (p.type === 'electric' || other.type === 'electric') {
+                        if (p.type === 'electric' || other.type === 'electric' || motionA === 'turbulent' || motionB === 'turbulent') {
                           effectType = 'sparks';
                           effectColor = '#00ffff';
                         } else if (p.type === 'nuclear' || other.type === 'nuclear') {
@@ -796,6 +800,12 @@ export default function App() {
                           effectType = 'shockwave';
                           effectColor = '#ffffff';
                           shakeRef.current = Math.max(shakeRef.current, 8);
+                        } else if (motionA === 'wave' || motionB === 'wave') {
+                          effectType = 'interference';
+                          effectColor = `hsla(${Math.round((p.hue + other.hue) / 2)}, 100%, 70%, 1)`;
+                        } else if (motionA === 'quantum' || motionB === 'quantum') {
+                          effectType = 'entanglement';
+                          effectColor = '#00ffff';
                         } else if (isHighEnergy) {
                           effectType = 'fragment';
                         }
@@ -2065,6 +2075,18 @@ export default function App() {
                         </div>
                         <p className="text-[9px] text-white/60 leading-relaxed">
                           {ENERGY_TYPES.find(e => e.id === hoveredEnergy)?.desc}
+                        </p>
+                        {(() => {
+                          const behavior = getParticleBehaviorProfile(hoveredEnergy as ParticleType);
+                          return (
+                            <div className="mt-2 pt-2 border-t border-white/10 flex items-center justify-between gap-3 text-[8px] uppercase tracking-wider">
+                              <span className="text-cyan-300">{behavior.label}</span>
+                              <span className="text-white/35">{behavior.motion}</span>
+                            </div>
+                          );
+                        })()}
+                        <p className="mt-1 text-[8px] text-white/40 leading-relaxed">
+                          {getParticleBehaviorProfile(hoveredEnergy as ParticleType).detail}
                         </p>
                       </motion.div>
                     )}

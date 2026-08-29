@@ -48,6 +48,169 @@ export interface QuantumState {
   isCollapsed: boolean;
 }
 
+export type ParticleMotion =
+  | 'radiant'
+  | 'wave'
+  | 'orbital'
+  | 'fluid'
+  | 'anchored'
+  | 'turbulent'
+  | 'attractor'
+  | 'quantum';
+
+export interface ParticleBehaviorProfile {
+  label: string;
+  detail: string;
+  motion: ParticleMotion;
+  inertia: number;
+  maxSpeed: number;
+  forceResponse: number;
+  interactionRadius: number;
+  centerPull: number;
+  radialDrive: number;
+  orbitDrive: number;
+  turbulence: number;
+  energyDrift: number;
+  pulseSpeed: number;
+  trailFactor: number;
+  collisionEnergy: number;
+}
+
+const DEFAULT_PARTICLE_BEHAVIOR: Omit<ParticleBehaviorProfile, 'label' | 'detail'> = {
+  motion: 'fluid',
+  inertia: 0.975,
+  maxSpeed: 10,
+  forceResponse: 1,
+  interactionRadius: 1,
+  centerPull: 0,
+  radialDrive: 0,
+  orbitDrive: 0,
+  turbulence: 0.05,
+  energyDrift: 0,
+  pulseSpeed: 0.08,
+  trailFactor: 0.2,
+  collisionEnergy: 0.04,
+};
+
+/**
+ * Intrinsic behaviour profile. This is deliberately separate from the global
+ * simulation modes: a fire particle should still feel different from water
+ * while both are inside the same mode.
+ */
+export function getParticleBehaviorProfile(type: ParticleType): ParticleBehaviorProfile {
+  const profile = (label: string, detail: string, overrides: Partial<ParticleBehaviorProfile>): ParticleBehaviorProfile => ({
+    ...DEFAULT_PARTICLE_BEHAVIOR,
+    label,
+    detail,
+    ...overrides,
+  });
+
+  switch (type) {
+    case 'energy':
+      return profile('แผ่รัศมี', 'พลังงานเบา เร่งออกจากบริเวณหนาแน่นและเรืองแสงตามระดับพลังงาน', { motion: 'radiant', maxSpeed: 14, forceResponse: 1.35, radialDrive: 0.035, energyDrift: 0.001, pulseSpeed: 0.14, trailFactor: 0.75, collisionEnergy: 0.08 });
+    case 'matter':
+      return profile('มวลเฉื่อย', 'มวลทั่วไปเคลื่อนที่ช้ากว่า รักษาโมเมนตัม และรวมตัวได้ง่าย', { motion: 'anchored', inertia: 0.958, maxSpeed: 6, forceResponse: 0.72, interactionRadius: 1.1, centerPull: 0.012, trailFactor: 0.12, collisionEnergy: 0.06 });
+    case 'electric':
+      return profile('ประจุสั่นไหว', 'ประจุเบาเปลี่ยนทิศฉับพลันและตอบสนองต่อสนามไฟฟ้ารุนแรง', { motion: 'turbulent', inertia: 0.99, maxSpeed: 20, forceResponse: 1.8, turbulence: 0.34, energyDrift: 0.001, pulseSpeed: 0.2, trailFactor: 0.85, collisionEnergy: 0.1 });
+    case 'nuclear':
+      return profile('แกนพลังงาน', 'มวลหนาแน่นสะสมพลังงานแล้วปล่อยแรงผลักเป็นระยะ', { motion: 'radiant', inertia: 0.965, maxSpeed: 8, forceResponse: 0.7, radialDrive: 0.06, energyDrift: 0.0015, pulseSpeed: 0.17, trailFactor: 0.6, collisionEnergy: 0.13 });
+    case 'cosmic':
+      return profile('โคจรจักรวาล', 'เคลื่อนเป็นวงโคจรพร้อมแรงดึงเข้าศูนย์กลางเล็กน้อย', { motion: 'orbital', inertia: 0.982, maxSpeed: 10, forceResponse: 1.05, centerPull: 0.006, orbitDrive: 0.095, pulseSpeed: 0.06, trailFactor: 0.45, collisionEnergy: 0.06 });
+    case 'universal':
+      return profile('แรงสากล', 'มีอิทธิพลต่อทุกสิ่ง ดึงเข้าศูนย์กลางและต้านการเปลี่ยนทิศ', { motion: 'attractor', inertia: 0.992, maxSpeed: 6, forceResponse: 2.1, interactionRadius: 1.35, centerPull: 0.11, pulseSpeed: 0.04, trailFactor: 0.25, collisionEnergy: 0.12 });
+    case 'light-atom':
+      return profile('อะตอมเบา', 'พุ่งเร็ว สะท้อนแรงง่าย และสั่นเป็นคลื่นเมื่อถูกรบกวน', { motion: 'wave', inertia: 0.992, maxSpeed: 22, forceResponse: 1.55, turbulence: 0.12, radialDrive: 0.04, pulseSpeed: 0.16, trailFactor: 0.9, collisionEnergy: 0.07 });
+    case 'heavy-atom':
+      return profile('อะตอมหนัก', 'มีความเฉื่อยสูง ตอบสนองช้าแต่ชนแล้วถ่ายโอนแรงมาก', { motion: 'anchored', inertia: 0.945, maxSpeed: 5, forceResponse: 0.48, interactionRadius: 1.2, centerPull: 0.018, trailFactor: 0.08, collisionEnergy: 0.11 });
+    case 'planet-core':
+      return profile('แกนดาวเคราะห์', 'มวลหนาแน่นยึดตัวเองไว้และสร้างวงแรงโน้มถ่วงรอบแกน', { motion: 'attractor', inertia: 0.92, maxSpeed: 4, forceResponse: 1.65, interactionRadius: 1.4, centerPull: 0.12, orbitDrive: 0.025, pulseSpeed: 0.025, trailFactor: 0.06, collisionEnergy: 0.14 });
+    case 'neutral':
+      return profile('เป็นกลาง', 'ไม่ถูกผลักด้วยประจุโดยตรง จึงเคลื่อนนุ่มและเสถียร', { motion: 'anchored', inertia: 0.972, maxSpeed: 7, forceResponse: 0.6, turbulence: 0.02, trailFactor: 0.1, collisionEnergy: 0.035 });
+    case 'dark-matter':
+      return profile('สสารมืด', 'มองไม่เห็นและต้านสนามส่วนใหญ่ แต่ตอบสนองต่อแรงโน้มถ่วงอย่างมาก', { motion: 'attractor', inertia: 0.995, maxSpeed: 5, forceResponse: 2.5, interactionRadius: 1.5, centerPull: 0.075, pulseSpeed: 0.025, trailFactor: 0.15, collisionEnergy: 0.09 });
+    case 'quark':
+      return profile('ควาร์กสั่นพ้อง', 'สั่นเร็ว เปลี่ยนเฟสและสีตลอดเวลา พร้อมการกระจายตัวแบบสุ่ม', { motion: 'turbulent', inertia: 0.998, maxSpeed: 24, forceResponse: 1.6, turbulence: 0.72, energyDrift: 0.002, pulseSpeed: 0.28, trailFactor: 1, collisionEnergy: 0.14 });
+    case 'antimatter':
+      return profile('ปฏิสสาร', 'เร่งหนีมวลรอบข้างอย่างรุนแรงและปล่อยพลังงานเมื่อชน', { motion: 'radiant', inertia: 0.99, maxSpeed: 18, forceResponse: 1.9, radialDrive: 0.13, energyDrift: 0.001, pulseSpeed: 0.2, trailFactor: 0.95, collisionEnergy: 0.2 });
+    case 'plasma':
+      return profile('พลาสมาเดือด', 'ของไหลมีประจุหมุนวนและเกิดความปั่นป่วนจากความร้อน', { motion: 'turbulent', inertia: 0.985, maxSpeed: 18, forceResponse: 1.35, turbulence: 0.45, radialDrive: 0.05, energyDrift: 0.002, pulseSpeed: 0.18, trailFactor: 0.8, collisionEnergy: 0.09 });
+    case 'photon':
+      return profile('โฟตอน', 'เคลื่อนที่เร็วมากเป็นเส้นทางแผ่รัศมีและถ่ายเทพลังงานเมื่อดูดกลืน', { motion: 'radiant', inertia: 0.999, maxSpeed: 28, forceResponse: 1.45, radialDrive: 0.09, pulseSpeed: 0.24, trailFactor: 1, collisionEnergy: 0.08 });
+    case 'fire':
+      return profile('เปลวไฟ', 'ลอยขึ้น แผ่รัศมี และสั่นแรงขึ้นเมื่อมีพลังงานสูง', { motion: 'radiant', inertia: 0.982, maxSpeed: 16, forceResponse: 1.25, radialDrive: 0.07, turbulence: 0.28, energyDrift: 0.001, pulseSpeed: 0.2, trailFactor: 0.85, collisionEnergy: 0.08 });
+    case 'water':
+      return profile('กระแสน้ำ', 'ไหลต่อเนื่อง โค้งตามแรง และรวมตัวเป็นกลุ่มนุ่มนวล', { motion: 'fluid', inertia: 0.978, maxSpeed: 10, forceResponse: 0.9, centerPull: 0.008, turbulence: 0.08, pulseSpeed: 0.055, trailFactor: 0.3, collisionEnergy: 0.045 });
+    case 'wind':
+      return profile('กระแสลม', 'เบาและเร็ว เปลี่ยนทิศเป็นคลื่นโดยแทบไม่สูญเสียความเร็ว', { motion: 'wave', inertia: 0.994, maxSpeed: 20, forceResponse: 1.25, turbulence: 0.22, pulseSpeed: 0.11, trailFactor: 0.7, collisionEnergy: 0.035 });
+    case 'earth':
+      return profile('มวลดิน', 'หนักแน่น เคลื่อนช้า ดูดเข้าหากันและต้านการกระเด้ง', { motion: 'anchored', inertia: 0.938, maxSpeed: 5, forceResponse: 0.5, interactionRadius: 1.25, centerPull: 0.022, pulseSpeed: 0.035, trailFactor: 0.05, collisionEnergy: 0.08 });
+    case 'light':
+      return profile('ลำแสง', 'แผ่จากจุดกำเนิดเป็นทางตรงและเรืองสว่างชัดเจน', { motion: 'radiant', inertia: 0.997, maxSpeed: 24, forceResponse: 1.5, radialDrive: 0.065, pulseSpeed: 0.23, trailFactor: 1, collisionEnergy: 0.06 });
+    case 'darkness':
+      return profile('เงามืด', 'ดูดกลืนความสว่างและค่อย ๆ ลากอนุภาคเข้าหาแกนกลาง', { motion: 'attractor', inertia: 0.987, maxSpeed: 8, forceResponse: 1.25, interactionRadius: 1.2, centerPull: 0.05, energyDrift: -0.001, pulseSpeed: 0.03, trailFactor: 0.12, collisionEnergy: 0.07 });
+    case 'lightning':
+      return profile('สายฟ้า', 'พุ่งเป็นจังหวะ กระโดดทิศทาง และสะสมประจุจากการชน', { motion: 'turbulent', inertia: 0.996, maxSpeed: 25, forceResponse: 1.9, turbulence: 0.8, energyDrift: 0.002, pulseSpeed: 0.3, trailFactor: 1, collisionEnergy: 0.12 });
+    case 'ice':
+      return profile('ผลึกน้ำแข็ง', 'เคลื่อนช้า เป็นระเบียบ และสูญเสียพลังงานอย่างรวดเร็ว', { motion: 'anchored', inertia: 0.946, maxSpeed: 6, forceResponse: 0.65, centerPull: 0.012, energyDrift: -0.0015, pulseSpeed: 0.025, trailFactor: 0.06, collisionEnergy: 0.04 });
+    case 'thermal':
+      return profile('ความร้อน', 'สั่นแบบสุ่มและกระจายออกเมื่ออุณหภูมิสูงขึ้น', { motion: 'turbulent', inertia: 0.985, maxSpeed: 15, forceResponse: 1.15, turbulence: 0.36, radialDrive: 0.045, energyDrift: 0.001, pulseSpeed: 0.16, trailFactor: 0.7, collisionEnergy: 0.07 });
+    case 'magnetic':
+      return profile('สนามแม่เหล็ก', 'โค้งเป็นวงโคจรและเบนทิศตามความเร็วของตัวเอง', { motion: 'orbital', inertia: 0.989, maxSpeed: 12, forceResponse: 1.35, orbitDrive: 0.14, centerPull: 0.01, pulseSpeed: 0.075, trailFactor: 0.5, collisionEnergy: 0.06 });
+    case 'sound-wave':
+      return profile('คลื่นเสียง', 'เดินทางเป็นคลื่นอัด-ขยายและส่งแรงสั่นออกเป็นวงแหวน', { motion: 'wave', inertia: 0.99, maxSpeed: 14, forceResponse: 1.1, turbulence: 0.18, pulseSpeed: 0.13, trailFactor: 0.55, collisionEnergy: 0.045 });
+    case 'pressure':
+      return profile('ความดัน', 'ผลักจากบริเวณหนาแน่นและบีบอัดตัวเองเมื่อเข้าใกล้ศูนย์กลาง', { motion: 'anchored', inertia: 0.965, maxSpeed: 8, forceResponse: 0.85, radialDrive: 0.09, pulseSpeed: 0.06, trailFactor: 0.18, collisionEnergy: 0.06 });
+    case 'gravity':
+      return profile('แรงโน้มถ่วง', 'ดึงทุกมวลเข้าหากันและเร่งขึ้นเมื่อระยะห่างลดลง', { motion: 'attractor', inertia: 0.99, maxSpeed: 9, forceResponse: 1.8, interactionRadius: 1.3, centerPull: 0.085, orbitDrive: 0.035, pulseSpeed: 0.045, trailFactor: 0.28, collisionEnergy: 0.1 });
+    case 'shockwave':
+      return profile('คลื่นกระแทก', 'พุ่งออกจากจุดกำเนิดเป็นชั้นแรงดันและลดความเร็วภายหลัง', { motion: 'radiant', inertia: 0.968, maxSpeed: 22, forceResponse: 1.25, radialDrive: 0.28, turbulence: 0.14, pulseSpeed: 0.19, trailFactor: 0.9, collisionEnergy: 0.11 });
+    case 'electron':
+      return profile('อิเล็กตรอน', 'เบามาก สั่นเร็ว และโคจรรอบศูนย์แรงได้ง่าย', { motion: 'orbital', inertia: 0.996, maxSpeed: 23, forceResponse: 1.75, turbulence: 0.28, orbitDrive: 0.11, pulseSpeed: 0.21, trailFactor: 0.9, collisionEnergy: 0.09 });
+    case 'proton':
+      return profile('โปรตอน', 'ประจุบวกมีมวลปานกลาง ดึงดูดเชิงโครงสร้างและชนค่อนข้างแน่น', { motion: 'anchored', inertia: 0.956, maxSpeed: 8, forceResponse: 0.85, centerPull: 0.016, pulseSpeed: 0.06, trailFactor: 0.18, collisionEnergy: 0.08 });
+    case 'neutron':
+      return profile('นิวตรอน', 'เป็นกลางและมีความเสถียรสูง จึงเคลื่อนตรงก่อนค่อย ๆ ช้าลง', { motion: 'anchored', inertia: 0.963, maxSpeed: 8, forceResponse: 0.7, turbulence: 0.015, pulseSpeed: 0.04, trailFactor: 0.12, collisionEnergy: 0.055 });
+    case 'ion':
+      return profile('ไอออน', 'ประจุมีมวลปานกลาง ส่ายตามสนามและปล่อยพลังงานเมื่อเร่ง', { motion: 'turbulent', inertia: 0.989, maxSpeed: 18, forceResponse: 1.5, turbulence: 0.32, energyDrift: 0.001, pulseSpeed: 0.17, trailFactor: 0.72, collisionEnergy: 0.09 });
+    case 'neutrino':
+      return profile('นิวทริโน', 'เบาและทะลุผ่านง่าย แทบไม่ถูกแรงชนรบกวน', { motion: 'wave', inertia: 0.998, maxSpeed: 26, forceResponse: 0.25, interactionRadius: 0.55, turbulence: 0.04, pulseSpeed: 0.18, trailFactor: 0.65, collisionEnergy: 0.018 });
+    case 'boson':
+      return profile('โบซอน', 'เป็นตัวกลางของแรง สั่นเป็นคลื่นและถ่ายโอนพลังงานระหว่างอนุภาค', { motion: 'wave', inertia: 0.994, maxSpeed: 21, forceResponse: 1.2, turbulence: 0.16, energyDrift: 0.001, pulseSpeed: 0.15, trailFactor: 0.75, collisionEnergy: 0.075 });
+    case 'stellar':
+      return profile('ดาวฤกษ์', 'มวลมาก โคจรช้าและมีแกนร้อนที่เรืองแสงต่อเนื่อง', { motion: 'orbital', inertia: 0.972, maxSpeed: 8, forceResponse: 1.25, centerPull: 0.025, orbitDrive: 0.16, energyDrift: 0.001, pulseSpeed: 0.09, trailFactor: 0.35, collisionEnergy: 0.12 });
+    case 'solar':
+      return profile('สุริยะ', 'แผ่รังสีรอบตัวและเร่งอนุภาคโดยรอบตามระดับความร้อน', { motion: 'radiant', inertia: 0.984, maxSpeed: 14, forceResponse: 1.35, radialDrive: 0.1, turbulence: 0.25, energyDrift: 0.0015, pulseSpeed: 0.17, trailFactor: 0.75, collisionEnergy: 0.09 });
+    case 'lunar':
+      return profile('จันทรา', 'โคจรนุ่มนวล สะท้อนแรงและเปลี่ยนเฟสช้า', { motion: 'orbital', inertia: 0.978, maxSpeed: 9, forceResponse: 0.8, orbitDrive: 0.09, centerPull: 0.012, energyDrift: -0.0005, pulseSpeed: 0.035, trailFactor: 0.28, collisionEnergy: 0.045 });
+    case 'cosmic-ray':
+      return profile('รังสีคอสมิก', 'พุ่งเร็วเป็นเส้นตรงและแทรกผ่านบริเวณต่าง ๆ ด้วยพลังงานสูง', { motion: 'radiant', inertia: 0.999, maxSpeed: 27, forceResponse: 1.2, radialDrive: 0.12, energyDrift: 0.001, pulseSpeed: 0.26, trailFactor: 1, collisionEnergy: 0.1 });
+    case 'nebula':
+      return profile('เนบิวลา', 'เป็นกลุ่มก๊าซไหลวน กระจายตัวช้า และก่อตัวเป็นริ้วหมอก', { motion: 'fluid', inertia: 0.982, maxSpeed: 9, forceResponse: 0.8, centerPull: 0.004, turbulence: 0.24, pulseSpeed: 0.045, trailFactor: 0.38, collisionEnergy: 0.04 });
+    case 'black-hole':
+      return profile('หลุมดำ', 'ดึงดูดรุนแรงมากและลดความเร็วของทุกสิ่งเมื่อเข้าใกล้ขอบฟ้าเหตุการณ์', { motion: 'attractor', inertia: 0.998, maxSpeed: 4, forceResponse: 2.8, interactionRadius: 1.65, centerPull: 0.18, orbitDrive: 0.08, pulseSpeed: 0.02, trailFactor: 0.2, collisionEnergy: 0.16 });
+    case 'supernova':
+      return profile('ซูเปอร์โนวา', 'ระเบิดแผ่รัศมีด้วยความเร็วสูงและเพิ่มพลังงานต่อเนื่อง', { motion: 'radiant', inertia: 0.99, maxSpeed: 26, forceResponse: 1.65, radialDrive: 0.3, turbulence: 0.26, energyDrift: 0.003, pulseSpeed: 0.25, trailFactor: 1, collisionEnergy: 0.18 });
+    case 'liquid-metal':
+      return profile('โลหะเหลว', 'ไหลรวมเป็นหยดหนักและตอบสนองต่อแม่เหล็กมากกว่าสสารทั่วไป', { motion: 'fluid', inertia: 0.956, maxSpeed: 8, forceResponse: 1.2, centerPull: 0.016, turbulence: 0.12, pulseSpeed: 0.07, trailFactor: 0.22, collisionEnergy: 0.07 });
+    case 'crystal':
+      return profile('คริสตัล', 'คงรูปเป็นระเบียบ สั่นเป็นจังหวะ และรับแรงได้มากก่อนแตกตัว', { motion: 'anchored', inertia: 0.93, maxSpeed: 5, forceResponse: 0.58, interactionRadius: 1.2, centerPull: 0.02, pulseSpeed: 0.08, trailFactor: 0.04, collisionEnergy: 0.095 });
+    case 'toxic-gas':
+      return profile('ก๊าซพิษ', 'ฟุ้งกระจายแบบปั่นป่วนและทิ้งริ้วร่องรอยไว้รอบตัว', { motion: 'fluid', inertia: 0.984, maxSpeed: 13, forceResponse: 1.05, radialDrive: 0.055, turbulence: 0.5, energyDrift: 0.0005, pulseSpeed: 0.13, trailFactor: 0.68, collisionEnergy: 0.055 });
+    case 'radiation':
+      return profile('รังสี', 'แผ่พลังงานออกทุกทิศและทำให้อนุภาครอบข้างตื่นตัว', { motion: 'radiant', inertia: 0.997, maxSpeed: 23, forceResponse: 1.45, radialDrive: 0.14, energyDrift: 0.002, pulseSpeed: 0.22, trailFactor: 0.95, collisionEnergy: 0.1 });
+    case 'quantum-matter':
+      return profile('สสารควอนตัม', 'สลับระหว่างความเป็นคลื่นกับอนุภาคและเปลี่ยนตำแหน่งแบบไม่ต่อเนื่อง', { motion: 'quantum', inertia: 0.996, maxSpeed: 17, forceResponse: 1.2, interactionRadius: 1.15, turbulence: 0.18, pulseSpeed: 0.12, trailFactor: 0.55, collisionEnergy: 0.08 });
+    case 'bio-energy':
+      return profile('พลังงานชีวภาพ', 'เติบโตเมื่อรวมกลุ่มและเคลื่อนที่เป็นจังหวะคล้ายการเต้นของสิ่งมีชีวิต', { motion: 'fluid', inertia: 0.974, maxSpeed: 11, forceResponse: 0.95, centerPull: 0.014, turbulence: 0.15, energyDrift: 0.001, pulseSpeed: 0.16, trailFactor: 0.4, collisionEnergy: 0.065 });
+    case 'psionic':
+      return profile('พลังจิต', 'เคลื่อนแบบคาดเดายาก มีวงโคจรเล็กและไวต่อสนามควอนตัม', { motion: 'quantum', inertia: 0.989, maxSpeed: 15, forceResponse: 1.3, orbitDrive: 0.07, turbulence: 0.28, pulseSpeed: 0.14, trailFactor: 0.5, collisionEnergy: 0.07 });
+    case 'mutating-matter':
+      return profile('สสารแปรผัน', 'เปลี่ยนรูปแบบการเคลื่อนที่ตลอดเวลาและเร่งขึ้นเมื่อเกิดการกลายพันธุ์', { motion: 'turbulent', inertia: 0.978, maxSpeed: 16, forceResponse: 1.15, turbulence: 0.42, energyDrift: 0.0012, pulseSpeed: 0.19, trailFactor: 0.6, collisionEnergy: 0.085 });
+    default:
+      return profile('อนุภาคทั่วไป', 'พฤติกรรมสมดุลระหว่างการไหล การชน และการตอบสนองต่อสนาม', {});
+  }
+}
+
 export interface Force {
   id: string;
   x: number;
@@ -710,6 +873,7 @@ export class Particle {
   life: number;
   hue: number;
   isSoundWaveInfluenced: boolean = false;
+  behavior: ParticleBehaviorProfile;
 
   pulse: number;
   id: string;
@@ -756,6 +920,8 @@ export class Particle {
   }
 
   initTypeProps() {
+    this.behavior = getParticleBehaviorProfile(this.type);
+
     switch (this.type) {
       case 'energy':
         this.mass = 0.5;
@@ -935,11 +1101,13 @@ export class Particle {
   }
 
   update(width: number, height: number, forces: Force[], config: any, modes: SimulationMode[], collisionEffects?: CollisionEffect[]) {
-    let friction = 0.98 - (this.mass * 0.001);
+    const behavior = this.behavior;
+    let friction = behavior.inertia - (this.mass * 0.0005);
+    friction = Math.max(0.9, Math.min(0.9995, friction));
     
-    if (modes.includes('static')) friction = 0.85;
-    if (modes.includes('vortex')) friction = 0.99;
-    if (modes.includes('quantum')) friction = 0.995; // Less friction in quantum world
+    if (modes.includes('static')) friction = Math.min(friction, 0.88);
+    if (modes.includes('vortex')) friction = Math.min(0.9995, friction + 0.01);
+    if (modes.includes('quantum')) friction = Math.min(0.9998, friction + 0.012); // Less friction in quantum world
 
     this.vx *= friction;
     this.vy *= friction;
@@ -1047,6 +1215,44 @@ export class Particle {
       }
     });
 
+    // Intrinsic material behaviour: these forces are always active, even when
+    // the user switches global simulation modes.
+    const time = Date.now() * 0.001;
+    const fieldCenterX = width / 2;
+    const fieldCenterY = height / 2;
+    const toCenterX = fieldCenterX - this.x;
+    const toCenterY = fieldCenterY - this.y;
+    const distanceFromCenter = Math.sqrt(toCenterX * toCenterX + toCenterY * toCenterY) || 1;
+    const directionX = toCenterX / distanceFromCenter;
+    const directionY = toCenterY / distanceFromCenter;
+    const tangentX = -directionY;
+    const tangentY = directionX;
+
+    if (behavior.centerPull !== 0) {
+      this.vx += directionX * behavior.centerPull;
+      this.vy += directionY * behavior.centerPull;
+    }
+    if (behavior.radialDrive !== 0) {
+      const radialImpulse = behavior.radialDrive * (0.35 + this.energy * 0.65);
+      this.vx -= directionX * radialImpulse;
+      this.vy -= directionY * radialImpulse;
+    }
+    if (behavior.orbitDrive !== 0) {
+      this.vx += tangentX * behavior.orbitDrive;
+      this.vy += tangentY * behavior.orbitDrive;
+    }
+    if (behavior.turbulence > 0) {
+      const waveX = Math.sin(time * (1.5 + behavior.pulseSpeed * 4) + this.pulse);
+      const waveY = Math.cos(time * (1.2 + behavior.pulseSpeed * 3) - this.pulse * 0.7);
+      const randomJitter = behavior.turbulence * 0.12;
+      this.vx += waveX * behavior.turbulence * 0.08 + (Math.random() - 0.5) * randomJitter;
+      this.vy += waveY * behavior.turbulence * 0.08 + (Math.random() - 0.5) * randomJitter;
+    }
+
+    if (behavior.energyDrift !== 0) {
+      this.energy = Math.min(1, Math.max(0.1, this.energy + behavior.energyDrift * (0.5 + this.energy)));
+    }
+
     // Quantum Mode Behaviors
     if (modes.includes('quantum')) {
       // Phase evolution
@@ -1101,7 +1307,8 @@ export class Particle {
       const distSq = dx * dx + dy * dy;
       const dist = Math.sqrt(distSq);
       
-      const effectiveRadius = f.radius * config.forceRadiusMult;
+              const effectiveRadius = f.radius * config.forceRadiusMult * behavior.interactionRadius;
+
       if (dist < effectiveRadius) {
         // Dark matter is highly resistant to most forces except universal, cosmic, and attractor
         let forceMult = 1.0;
@@ -1110,7 +1317,7 @@ export class Particle {
           forceMult = isGravityForce ? 2.5 : 0; // Strictly only affected by gravity-like forces
         }
 
-        const forceMag = (1 - dist / effectiveRadius) * f.strength * config.forceStrengthMult * forceMult / this.mass;
+        const forceMag = (1 - dist / effectiveRadius) * f.strength * config.forceStrengthMult * forceMult * behavior.forceResponse / this.mass;
         
         switch (f.type) {
           case 'attractor':
@@ -1194,23 +1401,25 @@ export class Particle {
       if (this.energy < 0.1) this.energy = 0.1;
     }
 
-    this.pulse += 0.05 + this.energy * 0.1; // Pulse faster with more energy
+    this.pulse += behavior.pulseSpeed + this.energy * 0.1; // Intrinsic pulse speed
 
-    // Quark jitter behavior
+    // Quarks constantly change phase and colour; mutating matter changes its
+    // visual phase more slowly so the two materials remain distinguishable.
     if (this.type === 'quark') {
-      this.vx += (Math.random() - 0.5) * 2;
-      this.vy += (Math.random() - 0.5) * 2;
-      this.hue = (this.hue + 5) % 360; // Rapidly change color
+      this.vx += (Math.random() - 0.5) * behavior.turbulence * 2.5;
+      this.vy += (Math.random() - 0.5) * behavior.turbulence * 2.5;
+      this.hue = (this.hue + 5) % 360;
+    } else if (this.type === 'mutating-matter') {
+      this.hue = (this.hue + Math.sin(time * 2) * 0.8) % 360;
     }
 
-    // Dark matter passive drift towards center (simulating gravitational influence)
-    if (this.type === 'dark-matter') {
-      const dxC = width / 2 - this.x;
-      const dyC = height / 2 - this.y;
-      const distC = Math.sqrt(dxC * dxC + dyC * dyC) || 1;
-      // Constant subtle pull towards the center
-      this.vx += (dxC / distC) * 0.015;
-      this.vy += (dyC / distC) * 0.015;
+    // Keep material-specific behaviours expressive without allowing a single
+    // high-energy particle to destabilise the whole canvas.
+    const speed = Math.sqrt(this.vx * this.vx + this.vy * this.vy);
+    if (speed > behavior.maxSpeed) {
+      const speedScale = behavior.maxSpeed / speed;
+      this.vx *= speedScale;
+      this.vy *= speedScale;
     }
 
     this.x += this.vx * config.speedMult;
@@ -1244,6 +1453,7 @@ export class Particle {
   }
 
   draw(ctx: CanvasRenderingContext2D, config: any, modes: SimulationMode[] = [], quantumSettings: any = {}) {
+    const behavior = this.behavior;
     const twinkle = Math.sin(this.pulse) * 0.3 + 0.7;
     const glowIntensity = config.glowLevel * this.energy * twinkle;
     
@@ -1259,6 +1469,106 @@ export class Particle {
       ctx.fill();
       ctx.restore();
     }
+
+    // Intrinsic behaviour signature. The same global mode can now show
+    // different motion language for different materials.
+    const motionSpeed = Math.sqrt(this.vx * this.vx + this.vy * this.vy);
+    if (behavior.trailFactor > 0.1 && motionSpeed > 0.6) {
+      ctx.save();
+      ctx.globalCompositeOperation = 'lighter';
+      ctx.globalAlpha = Math.min(0.42, behavior.trailFactor * (0.12 + this.energy * 0.25));
+      ctx.strokeStyle = this.color;
+      ctx.lineWidth = Math.max(0.6, this.size * 0.16);
+      ctx.beginPath();
+      ctx.moveTo(this.x, this.y);
+      ctx.lineTo(this.x - this.vx * (2 + behavior.trailFactor * 5), this.y - this.vy * (2 + behavior.trailFactor * 5));
+      ctx.stroke();
+      ctx.restore();
+    }
+
+    ctx.save();
+    ctx.globalCompositeOperation = 'lighter';
+    ctx.globalAlpha = Math.min(0.55, 0.16 + this.energy * 0.32);
+    ctx.strokeStyle = this.color;
+    ctx.fillStyle = this.color;
+    ctx.lineWidth = Math.max(0.7, this.size * 0.14);
+    switch (behavior.motion) {
+      case 'radiant': {
+        const rayLength = this.size * (2.5 + this.energy * 3);
+        for (let i = 0; i < 4; i++) {
+          const angle = this.pulse * 0.35 + (i * Math.PI) / 2;
+          ctx.beginPath();
+          ctx.moveTo(this.x + Math.cos(angle) * this.size, this.y + Math.sin(angle) * this.size);
+          ctx.lineTo(this.x + Math.cos(angle) * rayLength, this.y + Math.sin(angle) * rayLength);
+          ctx.stroke();
+        }
+        break;
+      }
+      case 'wave': {
+        for (let i = 1; i <= 2; i++) {
+          const radius = this.size * (2 + i * 2) + ((this.pulse * 8 + i * 10) % 12);
+          ctx.globalAlpha *= 0.65;
+          ctx.beginPath();
+          ctx.arc(this.x, this.y, radius, 0, Math.PI * 2);
+          ctx.stroke();
+        }
+        break;
+      }
+      case 'orbital': {
+        ctx.globalAlpha *= 0.7;
+        ctx.save();
+        ctx.translate(this.x, this.y);
+        ctx.rotate(this.pulse * 0.15);
+        ctx.beginPath();
+        ctx.ellipse(0, 0, this.size * 3.4, this.size * 1.35, 0, 0, Math.PI * 2);
+        ctx.stroke();
+        ctx.restore();
+        break;
+      }
+      case 'anchored': {
+        ctx.globalAlpha *= 0.65;
+        ctx.beginPath();
+        ctx.rect(this.x - this.size * 1.5, this.y - this.size * 1.5, this.size * 3, this.size * 3);
+        ctx.stroke();
+        break;
+      }
+      case 'turbulent': {
+        for (let i = 0; i < 3; i++) {
+          const angle = this.pulse * (1 + i * 0.35) + i * 2;
+          const length = this.size * (1.8 + i * 0.8);
+          ctx.beginPath();
+          ctx.moveTo(this.x, this.y);
+          ctx.lineTo(this.x + Math.cos(angle) * length, this.y + Math.sin(angle) * length);
+          ctx.stroke();
+        }
+        break;
+      }
+      case 'attractor': {
+        ctx.globalAlpha *= 0.7;
+        for (let i = 0; i < 2; i++) {
+          ctx.beginPath();
+          ctx.arc(this.x, this.y, this.size * (2 + i * 1.8), this.pulse + i, this.pulse + Math.PI * 1.35 + i);
+          ctx.stroke();
+        }
+        break;
+      }
+      case 'quantum': {
+        ctx.globalAlpha *= 0.75 * this.quantumState.coherence;
+        const quantumRadius = this.size * (2 + this.quantumState.probabilityCloud * 2);
+        ctx.beginPath();
+        ctx.arc(this.x, this.y, quantumRadius, this.quantumState.phase, this.quantumState.phase + Math.PI * 1.4);
+        ctx.stroke();
+        break;
+      }
+      case 'fluid': {
+        ctx.globalAlpha *= 0.5;
+        ctx.beginPath();
+        ctx.arc(this.x, this.y, this.size * 2.4 + Math.sin(this.pulse) * this.size * 0.5, 0, Math.PI * 2);
+        ctx.stroke();
+        break;
+      }
+    }
+    ctx.restore();
 
     // Quantum Visualization
     if (modes.includes('quantum')) {
